@@ -2,8 +2,11 @@
   "name": "mvcr-api",
   "version": "1.0.0",
   "description": "API to search for visa application status in MVCR",
-  "main": "index.js",
+  "main": "app.js",
   "author": "andrej2704@gmail.com",
+  "scripts": {
+    "start": "node app.js"
+  },
   "license": "MIT",
   "dependencies": {
     "axios": "0.18.0",
