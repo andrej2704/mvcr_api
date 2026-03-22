@@ -1,4 +1,4 @@
-const XLSX = require("xlsx");
+const ExcelJS = require("exceljs");
 const axios = require("axios");
 const cheerio = require("cheerio");
 let workbook = undefined;
@@ -43,31 +43,34 @@ let downloadExcel = function(search, page = 0) {
             return axios.get(fullUrl, { responseType: 'arraybuffer' });
         })
         .then(function(res) {
-            const data = new Uint8Array(res.data);
-            workbook = XLSX.read(data, { type: "array" });
-            return searchInWorkBook(workbook, search, page);
+            const wb = new ExcelJS.Workbook();
+            return wb.xlsx.load(Buffer.from(res.data)).then(() => {
+                workbook = wb;
+                return searchInWorkBook(workbook, search, page);
+            });
         });
 }
 
 let searchInWorkBook = function(workbook, search, page = 0) {
     const sheetIndex = parseInt(page, 10) || 0;
-    if (sheetIndex < 0 || sheetIndex >= workbook.SheetNames.length) {
+    if (sheetIndex < 0 || sheetIndex >= workbook.worksheets.length) {
         return Promise.reject(new Error("Invalid page number."));
     }
-    const sheet = workbook.Sheets[workbook.SheetNames[sheetIndex]];
-    const range = XLSX.utils.decode_range(sheet["!ref"]);
-    for (var R = range.s.r; R <= range.e.r; ++R) {
-        for (var C = range.s.c; C <= range.e.c; ++C) {
-            var cellref = XLSX.utils.encode_cell({ c: C, r: R });
-            if (!sheet[cellref]) continue;
-            var cell = sheet[cellref];
-            if (!(cell.t == "s" || cell.t == "str")) continue;
-            if (cell.v.includes(search)) {
-                return Promise.resolve({ found: "Found!!! Pick it Up!", fileName: fullFileName });
+    const worksheet = workbook.worksheets[sheetIndex];
+    let found = false;
+    worksheet.eachRow(function(row) {
+        if (found) return;
+        row.eachCell(function(cell) {
+            if (found) return;
+            if (typeof cell.value === 'string' && cell.value.includes(search)) {
+                found = true;
             }
-        }
-    }
-    return Promise.resolve({ found: "NOT Found!!!", fileName: fullFileName });
+        });
+    });
+    const result = found
+        ? { found: "Found!!! Pick it Up!", fileName: fullFileName }
+        : { found: "NOT Found!!!", fileName: fullFileName };
+    return Promise.resolve(result);
 }
 
 module.exports = appRouter;
